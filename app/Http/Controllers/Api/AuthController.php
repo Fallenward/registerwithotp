@@ -2,22 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
-use \Log;
+
 use App\Http\Controllers\Controller;
-use App\Mail\OtpMail;
+
 use App\Models\User;
-use Carbon\Carbon;
-use Ghasedak\DataTransferObjects\Request\InputDTO;
-use Ghasedak\DataTransferObjects\Request\ReceptorDTO;
-use Ghasedaksms\GhasedaksmsLaravel\Message\GhasedaksmsVerifyLookUp;
-use Ghasedaksms\GhasedaksmsLaravel\Notification\GhasedaksmsBaseNotification;
+
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
-use Tymon\JWTAuth\Facades\JWTAuth; // for JWT token
+
 
 class AuthController extends Controller
 {
@@ -40,18 +33,16 @@ class AuthController extends Controller
         $user = User::where('phone', $request->phone)->first();
 
 
-        $otpCode = $this->generate();
-
         if (!$user) {
             $user = new User;
             $user->phone = $request->phone;
+            $otpCode = $this->generate();
             $user->otp = $otpCode;
             $user->save();
             error_log("New user created with phone: " . $request->phone);
-        } elseif ($user->otp != 'ok') {
-            $user->otp = $otpCode;
-            $user->save();
-            error_log("User OTP updated for phone: " . $request->phone);
+        } elseif ($user->otp = 'ok') {
+
+            error_log("User OTP updated for phone: " );
         }
 
         try {
@@ -96,11 +87,13 @@ class AuthController extends Controller
         $user=User::where('phone', $request->phone)->first();
 
         if($user || $user->otp == $request->otp){
-            $user->otp= null;
+            $user->password= Hash::make($request->password);
+            $user->name=$request->name;
+            $user->otp= "ok";
             $user->save();
             return response()->json([
                 'status'=> true,
-                'massage'=> 'user otp is correct'
+                'massage'=> 'user otp is correct and info updated'
             ],200);
 
         }elseif($user || $user->otp !== $request->otp){
@@ -147,11 +140,15 @@ class AuthController extends Controller
         $request->validate([
         'phone' => 'required|regex:/^[0-9]{10}$/',
         'password'=> 'required|string:min:6',
-        'name' => 'required|string:min:3'
     ]);
 
 
         $user=User::where('phone', $request->phone)->first();
+
+        if(!$user){
+            return response()->json(['massage' => 'correct password']);
+        }
+
         if(!Hash::check($request->password, $user->password)){
             return response()->json(['massage' => 'wrong password']);
         }else{
