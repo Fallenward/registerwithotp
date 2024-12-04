@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use \Log;
 use App\Http\Controllers\Controller;
 use App\Mail\OtpMail;
 use App\Models\User;
@@ -27,80 +28,72 @@ class AuthController extends Controller
         }
         return $otp;
     }
-    public function chekUser(Request $request){
-        $user=User::where('phone', $request->phone)->first;
 
-        if(!$user){
-            $newuser = new User;
-            $newuser->phone = $request->phone;
-            $validateCode= $this->generate();
-            $newuser->otp= $validateCode;
-            $newuser->save();
-            try {
-                $response = Http::withHeaders([
-                    'ApiKey' => env("GHASEDAKAPI_KEY"),
-                ])->post('https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpSMS', [
-                    'sendDate' => now()->toIso8601String(),  // Example send date in ISO 8601 format
-                    'receptors' => [
-                        [
-                            'mobile' => $request->phone,           // Mobile number from the request
-                            'clientReferenceId' => (string) rand(1, 4), // Random client reference ID as a string
-                        ],
-                    ],
-                    'templateName' => 'chartix',                    // Template name
-                    'inputs' => [
-                        [
-                            'param' => 'code',                 // Parameter name
-                            'value' => $validateCode,                // Parameter value
-                        ],
-                    ],
-                    'udh' => true,                               // UDH flag
-                ]);
-            } catch (\Throwable $th) {
-            }
-            return response()->json(["data" => ["success" => false]], 200);
-        }else {
-            if ($user->otp == "ok") {
-                return response()->json(["data" => ["success" => true]], 200);
-            } else {
-                $validationCode = $this->generate();
-                $user->otp = $validationCode;
-                $user->save();
-                try {
-                    $response = Http::withHeaders([
-                        'ApiKey' => env("GHASEDAKAPI_KEY"),
-                    ])->post('https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpSMS', [
-                        'sendDate' => now()->toIso8601String(),  // Example send date in ISO 8601 format
-                        'receptors' => [
-                            [
-                                'mobile' => $request->phone,           // Mobile number from the request
-                                'clientReferenceId' => (string) rand(1, 4), // Random client reference ID as a string
-                            ],
-                        ],
-                        'templateName' => 'chartix',                    // Template name
-                        'inputs' => [
-                            [
-                                'param' => 'code',                 // Parameter name
-                                'value' => $validationCode,                // Parameter value
-                            ],
-                        ],
-                        'udh' => true,                               // UDH flag
-                    ]);
-                    return response()->json(["data" => ["success" => true]], 200);
-                } catch (\Throwable $th) {
-                }
-            }
+    public function checkUser(Request $request)
+    {
+
+        $validated = $request->validate([
+            'phone' => 'required|regex:/^(\+98|0)?9\d{9}$/',
+        ]);
+
+
+        $user = User::where('phone', $request->phone)->first();
+
+
+        $otpCode = $this->generate();
+
+        if (!$user) {
+            $user = new User;
+            $user->phone = $request->phone;
+            $user->otp = $otpCode;
+            $user->save();
+            error_log("New user created with phone: " . $request->phone);
+        } elseif ($user->otp != 'ok') {
+            $user->otp = $otpCode;
+            $user->save();
+            error_log("User OTP updated for phone: " . $request->phone);
         }
 
+        try {
+            $response = Http::withHeaders([
+                'ApiKey' => env('GHASEDAKAPI_KEY'),
+            ])->post('https://gateway.ghasedak.me/rest/api/v1/WebService/SendOtpSMS', [
+                'sendDate' => now()->toIso8601String(),
+                'receptors' => [
+                    [
+                        'mobile' => $request->phone,
+                        'clientReferenceId' => (string) rand(1, 10000), // Random reference ID
+                    ],
+                ],
+                'templateName' => 'chartix',
+                'inputs' => [
+                    [
+                        'param' => 'code',
+                        'value' => $otpCode,
+                    ],
+                ],
+                'udh' => true,
+            ]);
 
+
+            if ($response->failed()) {
+                error_log("Failed to send OTP SMS: " . $response->body());
+            }
+
+        } catch (\Throwable $th) {
+            error_log("Error sending OTP SMS: " . $th->getMessage());
+        }
+
+        return response()->json(['data' => ['success' => true]], 200);
     }
-    public function checkOpt(Request $request){
+
+    public function checkopt(Request $request){
     $request->validate([
         'phone' => 'required|regex:/^[0-9]{10}$/',
         'otp' => 'required|numeric',
     ]);
 
-        $user=User::where('phone', $request->phone)->first;
+        $user=User::where('phone', $request->phone)->first();
 
         if($user || $user->otp == $request->otp){
             $user->otp= null;
@@ -166,3 +159,4 @@ class AuthController extends Controller
             }
     }
 }
+
