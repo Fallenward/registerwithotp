@@ -112,29 +112,7 @@ class AuthController extends Controller
         }
 
     }
-     public function setinfo(Request $request){
-        $request->validate([
-                'phone' =>'required|regex:/^[0-9]{10}$/',
-            ]);
 
-            $user=User::where('phone', $request->phone)->first();
-                if (!$user){
-                    return response()->json([
-                        'massage' => 'wrong number or not registered'
-                    ]);
-                }else {
-                    $user->password= Hash::make($request->password);
-                    $user->name=$request->name;
-                    $user->save();
-
-                    return response()->json([
-                        'massage' => $user->name,'info set succesfully'
-                    ]);
-
-                }
-
-
-     }
 
     public function checkauth(Request $request){
         $request->validate([

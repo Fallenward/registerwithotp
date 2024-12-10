@@ -12,8 +12,6 @@ Route::get('/user', function (Request $request) {
 
 Route::post('check-otp',[AuthController::class,'checkopt']);
 
-Route::post('set-info',[AuthController::class,'setinfo']);
-
 Route::post('check-auth',[AuthController::class,'checkauth']);
 
 Route::post('check-user',[AuthController::class,'checkUser']);
